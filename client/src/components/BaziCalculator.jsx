@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
-import { Calendar, Info } from 'lucide-react';
+import { Calendar, Info, Heart, QrCode, X } from 'lucide-react';
 
 const BaziCalculator = () => {
   const [birthDate, setBirthDate] = useState('');
   const [birthTime, setBirthTime] = useState('');
   const [gender, setGender] = useState('male');
   const [result, setResult] = useState(null);
+  const [showDonation, setShowDonation] = useState(false);
+  const [donationAmount, setDonationAmount] = useState('');
+  const [paymentMethod, setPaymentMethod] = useState('wechat');
 
   // 天干
   const tianGan = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
@@ -355,6 +358,36 @@ const BaziCalculator = () => {
     });
     
     return predictions;
+  };
+
+  // 生成支付二维码（模拟）
+  const generatePaymentQR = (method, amount) => {
+    // 实际应用中，这里需要调用后端API生成真实的支付二维码
+    // 返回二维码URL或base64数据
+    const qrData = {
+      wechat: `wxp://f2f0xxxxxxxxxxxxx?amount=${amount}`,
+      alipay: `alipays://platformapi/startapp?amount=${amount}`
+    };
+    return qrData[method];
+  };
+
+  // 处理打赏
+  const handleDonation = () => {
+    if (!donationAmount || parseFloat(donationAmount) <= 0) {
+      alert('请输入有效的打赏金额');
+      return;
+    }
+    
+    // 实际应用中，这里应该：
+    // 1. 调用后端API创建订单
+    // 2. 获取支付二维码
+    // 3. 轮询支付状态
+    
+    const qrCode = generatePaymentQR(paymentMethod, donationAmount);
+    console.log('Payment QR Code:', qrCode);
+    
+    // 这里只是演示，实际需要显示真实的二维码
+    alert(`感谢您的${donationAmount}元打赏！\n请使用${paymentMethod === 'wechat' ? '微信' : '支付宝'}扫码支付`);
   };
 
   // 学业预测
@@ -1058,6 +1091,145 @@ const BaziCalculator = () => {
           <p className="mt-1">* 命运掌握在自己手中，积极努力才是成功之道</p>
           <p className="mt-1">* 八字与星座可互为参考，综合分析更为全面</p>
         </div>
+
+        {/* 打赏按钮 */}
+        <div className="mt-8 text-center">
+          <button
+            onClick={() => setShowDonation(true)}
+            className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-pink-500 to-rose-500 text-white rounded-full font-semibold hover:from-pink-600 hover:to-rose-600 transition-all shadow-lg hover:shadow-xl"
+          >
+            <Heart className="w-5 h-5" fill="currentColor" />
+            觉得有帮助？请作者喝杯咖啡
+          </button>
+        </div>
+
+        {/* 打赏弹窗 */}
+        {showDonation && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 relative">
+              <button
+                onClick={() => setShowDonation(false)}
+                className="absolute top-4 right-4 text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+
+              <div className="text-center mb-6">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-pink-100 to-rose-100 rounded-full mb-4">
+                  <Heart className="w-8 h-8 text-rose-500" fill="currentColor" />
+                </div>
+                <h3 className="text-2xl font-bold text-gray-800 mb-2">感谢您的支持</h3>
+                <p className="text-gray-600 text-sm">您的打赏是我们持续优化的动力</p>
+              </div>
+
+              {/* 金额选择 */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  选择金额或自定义
+                </label>
+                <div className="grid grid-cols-4 gap-2 mb-3">
+                  {[6, 18, 66, 88].map(amount => (
+                    <button
+                      key={amount}
+                      onClick={() => setDonationAmount(amount.toString())}
+                      className={`py-2 rounded-lg font-semibold transition-all ${
+                        donationAmount === amount.toString()
+                          ? 'bg-rose-500 text-white shadow-md'
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      ¥{amount}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  type="number"
+                  placeholder="自定义金额（元）"
+                  value={donationAmount}
+                  onChange={(e) => setDonationAmount(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-transparent"
+                  min="0.01"
+                  step="0.01"
+                />
+              </div>
+
+              {/* 支付方式 */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-3">
+                  支付方式
+                </label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setPaymentMethod('wechat')}
+                    className={`flex items-center justify-center gap-2 py-3 rounded-lg font-semibold transition-all ${
+                      paymentMethod === 'wechat'
+                        ? 'bg-green-500 text-white shadow-md'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <div className={`w-6 h-6 rounded ${paymentMethod === 'wechat' ? 'bg-white' : 'bg-green-500'}`}>
+                      <svg viewBox="0 0 24 24" fill={paymentMethod === 'wechat' ? '#10B981' : 'white'}>
+                        <path d="M8.5,2A6.5,6.5,0,0,0,2,8.5c0,3.08,2.13,5.66,5,6.32V21l3.5-3.5H14A6.5,6.5,0,0,0,20.5,11V8.5A6.5,6.5,0,0,0,14,2ZM9,13H7V11H9Zm4,0H11V11h2Zm4,0H15V11h2Z"/>
+                      </svg>
+                    </div>
+                    微信支付
+                  </button>
+                  <button
+                    onClick={() => setPaymentMethod('alipay')}
+                    className={`flex items-center justify-center gap-2 py-3 rounded-lg font-semibold transition-all ${
+                      paymentMethod === 'alipay'
+                        ? 'bg-blue-500 text-white shadow-md'
+                        : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                    }`}
+                  >
+                    <div className={`w-6 h-6 rounded ${paymentMethod === 'alipay' ? 'bg-white' : 'bg-blue-500'}`}>
+                      <svg viewBox="0 0 24 24" fill={paymentMethod === 'alipay' ? '#3B82F6' : 'white'}>
+                        <path d="M12,2A10,10,0,1,0,22,12,10,10,0,0,0,12,2Zm0,18a8,8,0,1,1,8-8A8,8,0,0,1,12,20Z"/>
+                        <path d="M16,11H13V8H11v3H8v2h3v3h2V13h3Z"/>
+                      </svg>
+                    </div>
+                    支付宝
+                  </button>
+                </div>
+              </div>
+
+              {/* 打赏说明 */}
+              <div className="bg-amber-50 rounded-lg p-4 mb-6">
+                <p className="text-xs text-amber-800 leading-relaxed">
+                  <span className="font-semibold">💡 温馨提示：</span>
+                  打赏为自愿行为，所有费用将用于服务器维护和功能优化。
+                  点击支付后将生成二维码，请使用对应APP扫码完成支付。
+                </p>
+              </div>
+
+              {/* 支付按钮 */}
+              <button
+                onClick={handleDonation}
+                disabled={!donationAmount || parseFloat(donationAmount) <= 0}
+                className="w-full py-3 bg-gradient-to-r from-rose-500 to-pink-500 text-white rounded-lg font-semibold hover:from-rose-600 hover:to-pink-600 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                <QrCode className="w-5 h-5" />
+                生成支付二维码
+              </button>
+
+              {/* 其他支持方式 */}
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <p className="text-center text-sm text-gray-600 mb-3">其他支持方式</p>
+                <div className="flex justify-center gap-4">
+                  <button className="text-xs text-gray-500 hover:text-gray-700 transition-colors">
+                    分享给朋友
+                  </button>
+                  <button className="text-xs text-gray-500 hover:text-gray-700 transition-colors">
+                    留言建议
+                  </button>
+                  <button className="text-xs text-gray-500 hover:text-gray-700 transition-colors">
+                    关注更新
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
