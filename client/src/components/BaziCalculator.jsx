@@ -9,6 +9,12 @@ const BaziCalculator = () => {
   const [showDonation, setShowDonation] = useState(false);
   const [donationAmount, setDonationAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('wechat');
+  const [activeTab, setActiveTab] = useState('bazi'); // 'bazi' or 'name'
+  
+  // 姓名测算相关状态
+  const [surname, setSurname] = useState('');
+  const [givenName, setGivenName] = useState('');
+  const [nameResult, setNameResult] = useState(null);
 
   // 天干
   const tianGan = ['甲', '乙', '丙', '丁', '戊', '己', '庚', '辛', '壬', '癸'];
@@ -360,7 +366,267 @@ const BaziCalculator = () => {
     return predictions;
   };
 
-  // 生成支付二维码（模拟）
+  // 常用汉字五行属性库（简化版，实际应包含更多字）
+  const charWuxing = {
+    // 金
+    '金': '金', '鑫': '金', '钰': '金', '铭': '金', '锐': '金', '锋': '金', '钧': '金', '铎': '金',
+    '瑞': '金', '琛': '金', '瑜': '金', '璇': '金', '玉': '金', '珏': '金', '珊': '金', '珍': '金',
+    '秋': '金', '舒': '金', '诗': '金', '晨': '金', '星': '金', '宸': '金', '静': '金', '青': '金',
+    
+    // 木
+    '木': '木', '林': '木', '森': '木', '柏': '木', '松': '木', '梓': '木', '杰': '木', '栋': '木',
+    '梅': '木', '桂': '木', '芳': '木', '花': '木', '茂': '木', '英': '木', '菁': '木', '萱': '木',
+    '建': '木', '健': '木', '强': '木', '杨': '木', '柳': '木', '枫': '木', '桐': '木', '楠': '木',
+    
+    // 水
+    '水': '水', '海': '水', '洋': '水', '江': '水', '河': '水', '湖': '水', '波': '水', '涛': '水',
+    '淼': '水', '清': '水', '泽': '水', '浩': '水', '渊': '水', '源': '水', '沛': '水', '润': '水',
+    '雨': '水', '雪': '水', '霖': '水', '霏': '水', '文': '水', '汶': '水', '沐': '水', '泓': '水',
+    
+    // 火
+    '火': '火', '炎': '火', '焱': '火', '煜': '火', '烨': '火', '灿': '火', '炜': '火', '焜': '火',
+    '明': '火', '昊': '火', '昱': '火', '晖': '火', '晓': '火', '曦': '火', '旭': '火', '阳': '火',
+    '丽': '火', '丹': '火', '彤': '火', '炳': '火', '晴': '火', '朗': '火', '耀': '火', '煌': '火',
+    
+    // 土
+    '土': '土', '坤': '土', '培': '土', '增': '土', '墨': '土', '坚': '土', '垚': '土', '堂': '土',
+    '圣': '土', '地': '土', '均': '土', '坦': '土', '城': '土', '境': '土', '域': '土', '基': '土',
+    '山': '土', '岩': '土', '峰': '土', '崇': '土', '岚': '土', '嵩': '土', '巍': '土', '磊': '土',
+    '宇': '土', '安': '土', '宏': '土', '宸': '土', '容': '土', '寰': '土', '辰': '土', '轩': '土'
+  };
+
+  // 根据汉字笔画数判断五行（康熙字典笔画）
+  const getWuxingByStroke = (stroke) => {
+    const remainder = stroke % 10;
+    if (remainder === 1 || remainder === 2) return '木';
+    if (remainder === 3 || remainder === 4) return '火';
+    if (remainder === 5 || remainder === 6) return '土';
+    if (remainder === 7 || remainder === 8) return '金';
+    if (remainder === 9 || remainder === 0) return '水';
+    return '木';
+  };
+
+  // 获取汉字五行属性（优先字库，其次笔画）
+  const getCharWuxing = (char) => {
+    if (charWuxing[char]) {
+      return charWuxing[char];
+    }
+    // 简化：用字符编码模拟笔画
+    const stroke = (char.charCodeAt(0) % 20) + 1;
+    return getWuxingByStroke(stroke);
+  };
+
+  // 计算姓名笔画（简化版）
+  const getStrokeCount = (char) => {
+    // 实际应使用康熙字典笔画数据库
+    // 这里简化处理
+    const code = char.charCodeAt(0);
+    return ((code - 0x4E00) % 20) + 1;
+  };
+
+  // 计算五格数理
+  const calculateWuge = (surname, givenName) => {
+    const surnameStrokes = Array.from(surname).map(getStrokeCount);
+    const givenNameStrokes = Array.from(givenName).map(getStrokeCount);
+    
+    const surnameTotal = surnameStrokes.reduce((a, b) => a + b, 0);
+    const givenTotal = givenNameStrokes.reduce((a, b) => a + b, 0);
+    
+    // 天格：姓氏笔画+1（单姓）
+    const tiange = surnameTotal + 1;
+    
+    // 人格：姓氏最后字+名字第一字
+    const renge = surnameStrokes[surnameStrokes.length - 1] + (givenNameStrokes[0] || 0);
+    
+    // 地格：名字笔画总和（若单字名+1）
+    const dige = givenTotal > 0 ? givenTotal : 1;
+    
+    // 外格：总格-人格+1
+    const waige = tiange + dige - renge + 1;
+    
+    // 总格：姓名总笔画
+    const zongge = surnameTotal + givenTotal;
+    
+    return { tiange, renge, dige, waige, zongge };
+  };
+
+  // 数理吉凶判断
+  const getNumberLuck = (num) => {
+    const luckyNumbers = [1,3,5,6,7,8,11,13,15,16,17,18,21,23,24,25,29,31,32,33,35,37,39,41,45,47,48,52,57,61,63,65,67,68,81];
+    const halfLucky = [40,42,43,50,51,53,55,58,71,73,75,77,78];
+    
+    if (luckyNumbers.includes(num)) return { level: '吉', score: 90 };
+    if (halfLucky.includes(num)) return { level: '半吉', score: 70 };
+    return { level: '凶', score: 40 };
+  };
+
+  // 数理含义
+  const getNumberMeaning = (num) => {
+    const meanings = {
+      1: '太极之数，万物开泰，生发无穷',
+      3: '进取如意，成功发达',
+      5: '福禄长寿，阴阳和合',
+      6: '安稳余庆，吉人天相',
+      7: '刚毅果断，勇往直前',
+      8: '意志坚强，勤勉发展',
+      11: '稳健着实，必得人望',
+      13: '智略超群，博学多才',
+      15: '福寿拱照，德高望重',
+      16: '厚重载德，安富尊荣',
+      17: '权威刚强，突破万难',
+      18: '有志竟成，内外有运',
+      21: '明月中天，独立权威',
+      23: '旭日东升，壮丽壮观',
+      24: '锦绣前程，须靠自力',
+      25: '天时地利，只欠人和',
+      29: '智谋兼备，成就大业',
+      31: '智勇得志，博得名利',
+      32: '池中之龙，风云际会',
+      33: '功威智谋，名闻天下'
+    };
+    return meanings[num] || '平常数理';
+  };
+
+  // 五行相生相克分析
+  const analyzeWuxingMatch = (bazi, nameWuxing) => {
+    if (!bazi) return { score: 50, analysis: '请先进行八字排盘' };
+    
+    const riZhuWuxing = wuXing[bazi.day.gan];
+    const compatibility = [];
+    let totalScore = 0;
+    
+    // 检查姓名五行与日主的关系
+    nameWuxing.forEach(element => {
+      const relation = getWuxingRelation(element, riZhuWuxing);
+      compatibility.push({ element, relation });
+      
+      if (relation === '相生' || relation === '同类') {
+        totalScore += 20;
+      } else if (relation === '相克') {
+        totalScore -= 10;
+      }
+    });
+    
+    totalScore = Math.max(0, Math.min(100, totalScore + 50));
+    
+    return { score: totalScore, compatibility };
+  };
+
+  // 判断五行关系
+  const getWuxingRelation = (element1, element2) => {
+    if (element1 === element2) return '同类';
+    
+    const sheng = {
+      '木': '火', '火': '土', '土': '金', '金': '水', '水': '木'
+    };
+    const ke = {
+      '木': '土', '土': '水', '水': '火', '火': '金', '金': '木'
+    };
+    
+    if (sheng[element1] === element2) return '相生';
+    if (ke[element1] === element2) return '相克';
+    return '无关';
+  };
+
+  // 姓名测算主函数
+  const analyzeName = () => {
+    if (!surname || !givenName) {
+      alert('请输入完整的姓名');
+      return;
+    }
+    
+    if (!birthDate) {
+      alert('请先填写出生日期');
+      return;
+    }
+    
+    // 计算五格
+    const wuge = calculateWuge(surname, givenName);
+    
+    // 获取各格吉凶
+    const tiangeResult = getNumberLuck(wuge.tiange);
+    const rengeResult = getNumberLuck(wuge.renge);
+    const digeResult = getNumberLuck(wuge.dige);
+    const waigeResult = getNumberLuck(wuge.waige);
+    const zonggeResult = getNumberLuck(wuge.zongge);
+    
+    // 计算五格平均分
+    const wugeScore = (
+      tiangeResult.score + 
+      rengeResult.score + 
+      digeResult.score + 
+      waigeResult.score + 
+      zonggeResult.score
+    ) / 5;
+    
+    // 分析姓名五行
+    const fullName = surname + givenName;
+    const nameWuxing = Array.from(fullName).map(char => ({
+      char,
+      wuxing: getCharWuxing(char)
+    }));
+    
+    // 五行配置分析
+    const wuxingMatch = analyzeWuxingMatch(result?.bazi, nameWuxing.map(n => n.wuxing));
+    
+    // 统计姓名五行
+    const nameWuxingCount = { '木': 0, '火': 0, '土': 0, '金': 0, '水': 0 };
+    nameWuxing.forEach(n => nameWuxingCount[n.wuxing]++);
+    
+    // 综合评分
+    const finalScore = Math.round((wugeScore * 0.6 + wuxingMatch.score * 0.4));
+    
+    // 评级
+    let rating = '不佳';
+    if (finalScore >= 90) rating = '极佳';
+    else if (finalScore >= 80) rating = '优秀';
+    else if (finalScore >= 70) rating = '良好';
+    else if (finalScore >= 60) rating = '及格';
+    
+    setNameResult({
+      fullName,
+      wuge,
+      wugeResults: {
+        tiange: { ...tiangeResult, meaning: getNumberMeaning(wuge.tiange) },
+        renge: { ...rengeResult, meaning: getNumberMeaning(wuge.renge) },
+        dige: { ...digeResult, meaning: getNumberMeaning(wuge.dige) },
+        waige: { ...waigeResult, meaning: getNumberMeaning(wuge.waige) },
+        zongge: { ...zonggeResult, meaning: getNumberMeaning(wuge.zongge) }
+      },
+      nameWuxing,
+      nameWuxingCount,
+      wuxingMatch,
+      wugeScore: Math.round(wugeScore),
+      finalScore,
+      rating,
+      suggestions: generateNameSuggestions(wuxingMatch, nameWuxingCount, result?.wuxingAnalysis)
+    });
+  };
+
+  // 生成取名建议
+  const generateNameSuggestions = (wuxingMatch, nameWuxingCount, baziWuxing) => {
+    const suggestions = [];
+    
+    if (wuxingMatch.score < 60) {
+      suggestions.push('姓名五行与八字匹配度较低，建议选择与日主相生的五行用字');
+    }
+    
+    if (!baziWuxing) {
+      suggestions.push('建议先进行八字分析，以便更准确地判断五行喜忌');
+    } else {
+      // 找出八字缺失的五行
+      const lackElements = Object.keys(baziWuxing).filter(e => baziWuxing[e] === '缺');
+      if (lackElements.length > 0 && nameWuxingCount[lackElements[0]] === 0) {
+        suggestions.push(`八字缺${lackElements[0]}，建议在姓名中补${lackElements[0]}行用字`);
+      }
+    }
+    
+    if (suggestions.length === 0) {
+      suggestions.push('姓名整体配置良好，五行较为平衡');
+    }
+    
+    return suggestions;
+  };
   const generatePaymentQR = (method, amount) => {
     // 实际应用中，这里需要调用后端API生成真实的支付二维码
     // 返回二维码URL或base64数据
@@ -663,7 +929,33 @@ const BaziCalculator = () => {
             <h1 className="text-3xl font-bold text-gray-800">八字命理推导系统</h1>
           </div>
 
-          <div className="space-y-4 mb-6">
+          {/* 标签切换 */}
+          <div className="flex gap-2 mb-6 border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab('bazi')}
+              className={`px-6 py-3 font-semibold transition-all ${
+                activeTab === 'bazi'
+                  ? 'border-b-2 border-amber-500 text-amber-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              八字排盘
+            </button>
+            <button
+              onClick={() => setActiveTab('name')}
+              className={`px-6 py-3 font-semibold transition-all ${
+                activeTab === 'name'
+                  ? 'border-b-2 border-amber-500 text-amber-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              姓名测算
+            </button>
+          </div>
+
+          {/* 八字排盘标签页 */}
+          {activeTab === 'bazi' && (
+            <div className="space-y-4 mb-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 出生日期
@@ -723,6 +1015,224 @@ const BaziCalculator = () => {
               排盘推算
             </button>
           </div>
+        )}
+
+        {/* 姓名测算标签页 */}
+        {activeTab === 'name' && (
+          <div className="space-y-4 mb-6">
+            <div className="bg-blue-50 rounded-lg p-4 mb-4">
+              <p className="text-sm text-blue-800">
+                <span className="font-semibold">💡 提示：</span>
+                姓名测算需要结合八字分析，请先在"八字排盘"标签页填写出生信息
+              </p>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  姓氏
+                </label>
+                <input
+                  type="text"
+                  value={surname}
+                  onChange={(e) => setSurname(e.target.value)}
+                  placeholder="请输入姓氏（如：张）"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  maxLength="2"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  名字
+                </label>
+                <input
+                  type="text"
+                  value={givenName}
+                  onChange={(e) => setGivenName(e.target.value)}
+                  placeholder="请输入名字（如：伟）"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  maxLength="3"
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={analyzeName}
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white py-3 rounded-lg font-semibold hover:from-blue-700 hover:to-indigo-700 transition-all shadow-lg"
+            >
+              开始测算
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* 姓名测算结果 */}
+      {nameResult && activeTab === 'name' && (
+        <div className="space-y-6">
+          {/* 综合评分 */}
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <div className="text-center mb-6">
+              <h2 className="text-3xl font-bold text-gray-800 mb-2">
+                【{nameResult.fullName}】姓名分析报告
+              </h2>
+              <div className="inline-block">
+                <div className="relative">
+                  <svg className="w-40 h-40">
+                    <circle cx="80" cy="80" r="70" fill="none" stroke="#e5e7eb" strokeWidth="12"/>
+                    <circle 
+                      cx="80" 
+                      cy="80" 
+                      r="70" 
+                      fill="none" 
+                      stroke={
+                        nameResult.finalScore >= 80 ? '#10b981' :
+                        nameResult.finalScore >= 60 ? '#f59e0b' : '#ef4444'
+                      }
+                      strokeWidth="12"
+                      strokeDasharray={`${nameResult.finalScore * 4.4} 440`}
+                      strokeLinecap="round"
+                      transform="rotate(-90 80 80)"
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex flex-col items-center justify-center">
+                    <div className="text-4xl font-bold text-amber-600">{nameResult.finalScore}</div>
+                    <div className="text-sm text-gray-600">综合评分</div>
+                  </div>
+                </div>
+                <div className={`mt-4 px-6 py-2 rounded-full font-bold text-lg ${
+                  nameResult.rating === '极佳' ? 'bg-green-100 text-green-700' :
+                  nameResult.rating === '优秀' ? 'bg-blue-100 text-blue-700' :
+                  nameResult.rating === '良好' ? 'bg-yellow-100 text-yellow-700' :
+                  nameResult.rating === '及格' ? 'bg-orange-100 text-orange-700' :
+                  'bg-red-100 text-red-700'
+                }`}>
+                  {nameResult.rating}
+                </div>
+              </div>
+            </div>
+
+            {/* 五格数理 */}
+            <div className="mb-6">
+              <h3 className="text-xl font-bold text-gray-800 mb-4 border-b-2 border-amber-200 pb-2">
+                五格数理分析（{nameResult.wugeScore}分）
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {Object.entries(nameResult.wugeResults).map(([key, value]) => {
+                  const names = {
+                    tiange: '天格',
+                    renge: '人格',
+                    dige: '地格',
+                    waige: '外格',
+                    zongge: '总格'
+                  };
+                  const num = nameResult.wuge[key];
+                  
+                  return (
+                    <div key={key} className={`rounded-lg p-4 border-l-4 ${
+                      value.level === '吉' ? 'bg-green-50 border-green-400' :
+                      value.level === '半吉' ? 'bg-yellow-50 border-yellow-400' :
+                      'bg-red-50 border-red-400'
+                    }`}>
+                      <div className="flex justify-between items-start mb-2">
+                        <span className="font-semibold text-gray-800">{names[key]}：{num}画</span>
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                          value.level === '吉' ? 'bg-green-200 text-green-800' :
+                          value.level === '半吉' ? 'bg-yellow-200 text-yellow-800' :
+                          'bg-red-200 text-red-800'
+                        }`}>
+                          {value.level}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-600">{value.meaning}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* 姓名五行 */}
+            <div className="mb-6">
+              <h3 className="text-xl font-bold text-gray-800 mb-4 border-b-2 border-amber-200 pb-2">
+                姓名五行配置
+              </h3>
+              <div className="flex flex-wrap gap-3 mb-4">
+                {nameResult.nameWuxing.map((item, idx) => (
+                  <div key={idx} className="bg-gradient-to-br from-purple-100 to-pink-100 rounded-lg px-4 py-2">
+                    <span className="text-lg font-bold text-gray-800">{item.char}</span>
+                    <span className="ml-2 text-sm text-purple-700">({item.wuxing})</span>
+                  </div>
+                ))}
+              </div>
+              
+              <div className="bg-indigo-50 rounded-lg p-4">
+                <div className="grid grid-cols-5 gap-2 mb-3">
+                  {Object.entries(nameResult.nameWuxingCount).map(([element, count]) => (
+                    <div key={element} className="text-center">
+                      <div className="text-sm text-gray-600">{element}</div>
+                      <div className="text-2xl font-bold text-indigo-600">{count}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="text-sm text-gray-700">
+                  <span className="font-semibold">五行匹配度：</span>
+                  <span className={`font-bold ${
+                    nameResult.wuxingMatch.score >= 80 ? 'text-green-600' :
+                    nameResult.wuxingMatch.score >= 60 ? 'text-yellow-600' :
+                    'text-red-600'
+                  }`}>
+                    {nameResult.wuxingMatch.score}分
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {/* 取名建议 */}
+            <div>
+              <h3 className="text-xl font-bold text-gray-800 mb-4 border-b-2 border-amber-200 pb-2">
+                专业建议
+              </h3>
+              <div className="space-y-3">
+                {nameResult.suggestions.map((suggestion, idx) => (
+                  <div key={idx} className="bg-amber-50 rounded-lg p-4 border-l-4 border-amber-400">
+                    <p className="text-gray-700">
+                      <span className="font-semibold text-amber-700">▸ </span>
+                      {suggestion}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* 五格详解 */}
+          <div className="bg-white rounded-2xl shadow-xl p-8">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">五格含义详解</h3>
+            <div className="space-y-4 text-sm text-gray-600">
+              <div className="bg-gray-50 rounded-lg p-4">
+                <span className="font-semibold text-gray-800">天格：</span>
+                代表先天运势，由姓氏决定，影响人生早年运程
+              </div>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <span className="font-semibold text-gray-800">人格：</span>
+                代表主运，影响人的性格、才能、事业成就
+              </div>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <span className="font-semibold text-gray-800">地格：</span>
+                代表前运，影响青年时期的活动能力和家庭、夫妻关系
+              </div>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <span className="font-semibold text-gray-800">外格：</span>
+                代表副运，影响社交能力、智慧等
+              </div>
+              <div className="bg-gray-50 rounded-lg p-4">
+                <span className="font-semibold text-gray-800">总格：</span>
+                代表后运，影响中年到晚年的命运
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
         </div>
 
         {result && (
